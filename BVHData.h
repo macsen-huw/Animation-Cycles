@@ -107,7 +107,13 @@ public:
     void Render(Matrix4& viewMatrix, float scale, int frame, float groundHeight);
 
 	// render a single joint by given frame id
-	void RenderJoint(Matrix4& viewMatrix, Matrix4 HierarchicalMatrix, Joint* joint, float scale, int frame);
+    void RenderJoint(Matrix4& viewMatrix, Matrix4 parentMatrix, Joint* joint, float scale, int frame);
+
+    //Render 2 BVH animations being blended together
+    void RenderBlend(Matrix4& viewMatrix, float scale, int frame, float groundHeight, BVHData& blend, float t, int blendFrame);
+
+    //Blend the positions of two joints together
+    void RenderBlendedJoint(Matrix4& viewMatrix, Matrix4 parentMatrix, Joint* joint, Joint* blendJoint, std::vector<std::vector<Cartesian3>>& blendBoneRotations, int blendFrame, int blendFrameCount, float t, float scale, int frame);
 
 	// render cylinder given the start position and the end position
 	void RenderCylinder(Matrix4& viewMatrix, Cartesian3 start, Cartesian3 end);

@@ -152,9 +152,50 @@ void SceneModel::Render()
     Cartesian3 characterPos = characterTransform * Cartesian3(0,0,0);
     float groundHeight = groundModel.getHeight(characterPos.x, characterPos.z);
 
-    //Render the current pose
-    //Make it 1/10th of the size in the file by specifying scale = 0.1
-    current.Render(characterPosition, 0.1, frameNumber, groundHeight);
+    if(currentlyBlending)
+    {
+        //Render
+        current.RenderBlend(characterPosition, 0.1, frameNumber,  groundHeight, blend, t, blendFrame );
+        std::cout << "Currently Blending" << std::endl;
+
+        //Update values for next iteration
+        blendFrame += 1;
+
+        t -= (1.0 / 30.0);
+
+        //Check whether to stop blending
+        if(t < 0)
+        {
+            //Make the blended animation the current one
+            currentlyBlending = false;
+            current = blend;
+            frameNumber = blendFrame;
+
+            std::cout << "Stopped Blending" << std::endl;
+        }
+    }
+
+    else
+    {
+        //Render the current pose
+        //Make it 1/10th of the size in the file by specifying scale = 0.1
+        current.Render(characterPosition, 0.1, frameNumber, groundHeight);
+    }
+
+    //BLEND HERE
+    /*
+    Create new function BLEND
+    Here, we rotate again and then pass on the rotation to the other
+    so current.Blend( BVH Data blended, float t)
+
+    Update t here
+
+    Have a boolean that determines if thingy is here
+     *
+     *
+     * */
+
+
     } // Render()
 
 // camera control events: WASD for motion
@@ -209,30 +250,62 @@ void SceneModel::EventCameraTurnRight()
 // character motion events: arrow keys for forward, backward, veer left & right
 void SceneModel::EventCharacterTurnLeft()
 	{ // EventCharacterTurnLeft()
-    current = veerLeftCycle;
-    move = true;
-    turn = 1;
+
+    //Only allow action if blending is not occuring
+    if(!currentlyBlending)
+    {
+        currentlyBlending = true;
+        blend = veerLeftCycle;
+        move = true;
+        turn = 1;
+        blendFrame = 0;
+        t = 1.0;
+    }
+
 	} // EventCharacterTurnLeft()
 	
 void SceneModel::EventCharacterTurnRight()
     { // EventCharacterTurnRight()
-    current = veerRightCycle;
-    move = true;
-    turn = 2;
+    if(!currentlyBlending)
+    {
+        currentlyBlending = true;
+        blend = veerRightCycle;
+        move = true;
+        turn = 2;
+        blendFrame = 0;
+        t = 1.0;
+    }
+
+
 	} // EventCharacterTurnRight()
 	
 void SceneModel::EventCharacterForward()
 	{ // EventCharacterForward()
-    current = runCycle;
-    move = true;
-    turn = 0;
+
+    if(!currentlyBlending)
+    {
+        currentlyBlending = true;
+        blend = runCycle;
+        move = true;
+        turn = 0;
+        blendFrame = 0;
+        t = 1.0;
+    }
+
 	} // EventCharacterForward()
 	
 void SceneModel::EventCharacterBackward()
 	{ // EventCharacterBackward()
-    current = restPose;
-    move = false;
-    turn = 0;
+    if(!currentlyBlending)
+    {
+        currentlyBlending = true;
+        blend = restPose;
+        move = false;
+        turn = 0;
+        blendFrame = 0;
+        t = 1.0;
+    }
+
 	} // EventCharacterBackward()
 
 // reset character to original position: p

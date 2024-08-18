@@ -210,6 +210,16 @@ void BVHData::Render(Matrix4& viewMatrix, float scale, int frame, float groundHe
     RenderJoint(viewMatrix, initialHeight, &this->root, scale, frame);
 	} // Render()
 
+
+void BVHData::RenderBlend(Matrix4 &viewMatrix, float scale, int frame, float groundHeight, BVHData &blend, float t, int blendFrame)
+{
+    //Set initial Height of the ground
+    Matrix4 initialHeight = Matrix4::Translate({0, groundHeight, 0});
+
+    //Pass all other information to RenderBlendJoint
+    RenderBlendedJoint(viewMatrix, initialHeight, &this->root, &blend.root, blend.boneRotations, blendFrame, blend.frame_count, t, scale, frame);
+}
+
 // render a single joint for a given frame
 void BVHData::RenderJoint(Matrix4& viewMatrix, Matrix4 parentMatrix, Joint* joint, float scale, int frame)
     { // RenderJoint
@@ -280,6 +290,103 @@ void BVHData::RenderJoint(Matrix4& viewMatrix, Matrix4 parentMatrix, Joint* join
           RenderJoint(viewMatrix, jointTransformMatrix, &child, scale, frame);
       }
 	} // RenderJoint()
+
+void BVHData::RenderBlendedJoint(Matrix4 &viewMatrix, Matrix4 parentMatrix, Joint *joint, Joint *blendJoint, std::vector<std::vector<Cartesian3>> &blendBoneRotations, int blendFrame, int blendFrameCount, float t, float scale, int frame)
+{
+    //Get which frame to render
+    int framePos = frame % frame_count;
+
+    int blendedFramePos = blendFrame % blendFrameCount;
+
+    //The position of the joint in its own coordinate system is (0,0,0)
+    Cartesian3 jointPosition = {0,0,0};
+
+    //Get the joint offset
+    Cartesian3 jointOffset = Cartesian3(joint->joint_offset[0], joint->joint_offset[1], joint->joint_offset[2]) * scale;
+
+    //Get the translation matrix
+    Matrix4 jointTranslateMatrix = Matrix4::Translate(jointOffset);
+
+    //Get the rotation data from the channels
+    //Note we negate the angles, since they are meant for a right hand coordinate system, but the Matrix4::Rotate functions are in a left hand coordinate system
+    Cartesian3 jointRotations = -Cartesian3(boneRotations[framePos][joint->id].x, boneRotations[framePos][joint->id].y, boneRotations[framePos][joint->id].z);
+
+    //Interpolate the angles
+    jointRotations = jointRotations * t;
+
+    //Now get the rotations from the second animation and do the same
+    Cartesian3 blendJointRotations = -Cartesian3(blendBoneRotations[blendedFramePos][blendJoint->id].x, blendBoneRotations[blendedFramePos][blendJoint->id].y, blendBoneRotations[blendedFramePos][blendJoint->id].z);
+
+    //Interpolate the angles
+    blendJointRotations = blendJointRotations * (1-t);
+
+    //Add them together for the final angles
+    Cartesian3 finalRotation = jointRotations + blendJointRotations;
+
+    Matrix4 jointRotateX, jointRotateY, jointRotateZ;
+    jointRotateX = Matrix4::RotateX(finalRotation.x);
+    jointRotateY = Matrix4::RotateY(finalRotation.y);
+    jointRotateZ = Matrix4::RotateZ(finalRotation.z);
+
+    //Combine to create rotation matrix
+    Matrix4 jointRotateMatrix = jointRotateX * jointRotateY * jointRotateZ;
+
+    //Create transformation matrix
+    //Take the parent matrix, then translate it, then rotate it
+    Matrix4 jointTransformMatrix = parentMatrix * jointTranslateMatrix;
+    jointTransformMatrix = jointTransformMatrix * jointRotateMatrix;
+
+    //We now have the position of the joint in the root coordinate system
+    jointPosition = jointTransformMatrix * jointPosition;
+
+    //Loop through all children
+    //Use numbers since we want access to both current and blend joint
+    for(int i = 0; i < joint->Children.size(); i++)
+    {
+        //The child is at {0,0,0} in its own coordinate system
+        Cartesian3 childPosition = {0,0,0};
+
+        //Get child translate data and set up matrix
+        Cartesian3 childOffset = Cartesian3(joint->Children[i].joint_offset[0], joint->Children[i].joint_offset[1], joint->Children[i].joint_offset[2]) * scale;
+        Matrix4 childTranslateMatrix = Matrix4::Translate(childOffset);
+
+        //Get child rotation data and set up matrix
+        Cartesian3 childRotations = -Cartesian3(boneRotations[framePos][joint->Children[i].id].x, boneRotations[framePos][joint->Children[i].id].y, boneRotations[framePos][joint->Children[i].id].z);
+
+        //Interpolate
+        childRotations = childRotations * t;
+
+        //Get blend animation's rotations
+        Cartesian3 blendChildRotations = -Cartesian3(blendBoneRotations[blendedFramePos][blendJoint->Children[i].id].x, blendBoneRotations[blendedFramePos][blendJoint->Children[i].id].y, blendBoneRotations[blendedFramePos][blendJoint->Children[i].id].z);
+
+        blendChildRotations = blendChildRotations * (1-t);
+
+        Cartesian3 finalChildRotation = childRotations + blendChildRotations;
+
+        Matrix4 childRotateX, childRotateY, childRotateZ;
+        childRotateX = Matrix4::RotateX(finalChildRotation.x);
+        childRotateY = Matrix4::RotateY(finalChildRotation.y);
+        childRotateZ = Matrix4::RotateZ(finalChildRotation.z);
+
+        //Rotate in ZYX order
+        Matrix4 childRotationMatrix = childRotateX * childRotateY * childRotateZ;
+
+        //Set up child transformation matrix
+        Matrix4 childTransformMatrix = jointTransformMatrix * childTranslateMatrix;
+        childTransformMatrix = childTransformMatrix * childRotationMatrix;
+
+        //Get the child's position in the root coordinate system
+        childPosition = childTransformMatrix * childPosition;
+
+        //Render cylinder between parent and child joints
+        RenderCylinder(viewMatrix, jointPosition, childPosition);
+
+        //Recursively call for each child
+        RenderBlendedJoint(viewMatrix, jointTransformMatrix, &joint->Children[i], &blendJoint->Children[i], blendBoneRotations, blendFrame, blendFrameCount, t, scale, frame);
+    }
+
+
+}
 
 // render cylinder given the start position and the end position
 void BVHData::RenderCylinder(Matrix4& viewMatrix, Cartesian3 start, Cartesian3 end)

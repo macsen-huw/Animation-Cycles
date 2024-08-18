@@ -44,6 +44,12 @@ class SceneModel
     //Value to store which BVH data is currently being used
     BVHData current;
 
+    //Value to store which BVH data is being blended to
+    BVHData blend;
+    bool currentlyBlending = false;
+    float t;
+    int blendFrame;
+
 	// location & orientation of character
     Matrix4 characterTransform;
 	Cartesian3 characterLocation;
