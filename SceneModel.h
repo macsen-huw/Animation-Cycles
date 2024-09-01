@@ -40,9 +40,23 @@ class SceneModel
 	BVHData runCycle;
 	BVHData veerLeftCycle;
 	BVHData veerRightCycle;
+    BVHData walkCycle;
+
+    //Determine whether blending is enabled
+    bool blendingEnabled;
+
+    enum
+    {
+        REST,
+        RUNNING,
+        WALKING,
+        TURN_LEFT,
+        TURN_RIGHT
+    } Animations;
 
     //Value to store which BVH data is currently being used
     BVHData current;
+    int currentAnim;
 
     //Value to store which BVH data is being blended to
     BVHData blend;
@@ -55,6 +69,7 @@ class SceneModel
 	Cartesian3 characterLocation;
 	Matrix4 characterRotation;
     bool move;
+    bool walk;
     int turn;
 
 	// a matrix that specifies the mapping from world coordinates to those assumed
@@ -95,6 +110,8 @@ class SceneModel
 	void EventCharacterTurnRight();
 	void EventCharacterForward();
 	void EventCharacterBackward();
+
+    void EventCharacterWalk();
 
 	// reset character to original position: p
 	void EventCharacterReset();

@@ -133,6 +133,9 @@ void AnimationCycleWidget::keyPressEvent(QKeyEvent *event)
 		case Qt::Key_Right:
 			theScene->EventCharacterTurnRight();
 			break;
+        case Qt::Key_Control:
+            theScene->EventCharacterWalk();
+            break;
 		
 		// just in case
 		default:

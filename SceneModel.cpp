@@ -20,6 +20,7 @@
 const char* groundModelName		= "./models/randomland.dem";
 const char* characterModelName	= "./models/human_lowpoly_100.obj";
 const char* motionBvhStand		= "./models/stand.bvh";
+const char* motionBvhWalk       = "./models/walking.bvh";
 const char* motionBvhRun		= "./models/fast_run.bvh";
 const char* motionBvhveerLeft	= "./models/veer_left.bvh";
 const char* motionBvhveerRight	= "./models/veer_right.bvh";
@@ -45,6 +46,7 @@ SceneModel::SceneModel()
 	runCycle.ReadFileBVH(motionBvhRun);
 	veerLeftCycle.ReadFileBVH(motionBvhveerLeft);
 	veerRightCycle.ReadFileBVH(motionBvhveerRight);
+    walkCycle.ReadFileBVH(motionBvhWalk);
 
 	// set the world to opengl matrix
 	world2OpenGLMatrix = Matrix4::RotateX(90.0);
@@ -59,12 +61,14 @@ SceneModel::SceneModel()
 
     //Initialise current BVH to restPose
     current = restPose;
+    currentAnim = REST;
 
     //Set up the character location and rotation
     characterTransform = Matrix4::Identity();
     characterLocation = {0,0,0};
     characterRotation = Matrix4::Identity();
     move = false;
+    walk = false;
     turn = 0;
 
 	} // constructor
@@ -129,7 +133,10 @@ void SceneModel::Render()
         //Go slower if the character is turning
         if (turn == 1 || turn == 2)
             characterLocation.y = -0.35;
-        //Go quickest when running in straight line
+        //Slowest pace when walking
+        else if(walk)
+            characterLocation.y = -0.2;
+        //Go quickest when running
         else
             characterLocation.y = -0.5;
     }
@@ -156,12 +163,12 @@ void SceneModel::Render()
     {
         //Render
         current.RenderBlend(characterPosition, 0.1, frameNumber,  groundHeight, blend, t, blendFrame );
-        std::cout << "Currently Blending" << std::endl;
 
         //Update values for next iteration
         blendFrame += 1;
 
-        t -= (1.0 / 30.0);
+        //The animation blend lasts for 0.5s (i.e. 12 frames out of the 24fps)
+        t -= (1.0 / 12.0);
 
         //Check whether to stop blending
         if(t < 0)
@@ -170,8 +177,6 @@ void SceneModel::Render()
             currentlyBlending = false;
             current = blend;
             frameNumber = blendFrame;
-
-            std::cout << "Stopped Blending" << std::endl;
         }
     }
 
@@ -181,20 +186,6 @@ void SceneModel::Render()
         //Make it 1/10th of the size in the file by specifying scale = 0.1
         current.Render(characterPosition, 0.1, frameNumber, groundHeight);
     }
-
-    //BLEND HERE
-    /*
-    Create new function BLEND
-    Here, we rotate again and then pass on the rotation to the other
-    so current.Blend( BVH Data blended, float t)
-
-    Update t here
-
-    Have a boolean that determines if thingy is here
-     *
-     *
-     * */
-
 
     } // Render()
 
@@ -249,12 +240,13 @@ void SceneModel::EventCameraTurnRight()
 	
 // character motion events: arrow keys for forward, backward, veer left & right
 void SceneModel::EventCharacterTurnLeft()
-	{ // EventCharacterTurnLeft()
+    { // EventCharacterTurnLeft()
 
-    //Only allow action if blending is not occuring
-    if(!currentlyBlending)
+    //Only allow action if blending is not occuring, and when changing animations
+    if(!currentlyBlending && (currentAnim != TURN_LEFT))
     {
         currentlyBlending = true;
+        currentAnim = TURN_LEFT;
         blend = veerLeftCycle;
         move = true;
         turn = 1;
@@ -262,55 +254,79 @@ void SceneModel::EventCharacterTurnLeft()
         t = 1.0;
     }
 
-	} // EventCharacterTurnLeft()
+    } // EventCharacterTurnLeft()
 	
 void SceneModel::EventCharacterTurnRight()
     { // EventCharacterTurnRight()
-    if(!currentlyBlending)
+    if(!currentlyBlending && (currentAnim != TURN_RIGHT))
     {
         currentlyBlending = true;
+        currentAnim = TURN_RIGHT;
         blend = veerRightCycle;
         move = true;
+        walk = false;
         turn = 2;
         blendFrame = 0;
         t = 1.0;
     }
 
 
-	} // EventCharacterTurnRight()
+    } // EventCharacterTurnRight()
 	
 void SceneModel::EventCharacterForward()
-	{ // EventCharacterForward()
+    { // EventCharacterForward()
 
-    if(!currentlyBlending)
+    if(!currentlyBlending && (currentAnim != RUNNING))
     {
         currentlyBlending = true;
+        currentAnim = RUNNING;
         blend = runCycle;
         move = true;
+        walk = false;
         turn = 0;
         blendFrame = 0;
         t = 1.0;
     }
 
-	} // EventCharacterForward()
+    } // EventCharacterForward()
 	
 void SceneModel::EventCharacterBackward()
-	{ // EventCharacterBackward()
-    if(!currentlyBlending)
+    { // EventCharacterBackward()
+    if(!currentlyBlending && (currentAnim != REST))
     {
         currentlyBlending = true;
+        currentAnim = REST;
         blend = restPose;
         move = false;
+        walk = false;
         turn = 0;
         blendFrame = 0;
         t = 1.0;
     }
 
-	} // EventCharacterBackward()
+    } // EventCharacterBackward()
+
+
+void SceneModel::EventCharacterWalk()
+    { // EventCharacterWalk()
+    if(!currentlyBlending && (currentAnim != WALKING))
+    {
+        currentlyBlending = true;
+        currentAnim = WALKING;
+        blend = walkCycle;
+        move = true;
+        walk = true;
+        turn = 0;
+        blendFrame = 0;
+        t = 1.0;
+    }
+
+    } // EventCharacterWalk()
 
 // reset character to original position: p
 void SceneModel::EventCharacterReset()
 	{ // EventCharacterReset()
 	this->characterLocation = Cartesian3(0, 0, 0);
 	this->characterRotation = Matrix4::Identity();
+    this->characterTransform = Matrix4::Identity();
 	} // EventCharacterReset()
